@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yhomira Mini‑Juego</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--card:#121825;--muted:#6b7280;--accent:#a78bfa;--ok:#22c55e;--bad:#ef4444;--ink:#e5e7eb;--ink2:#cbd5e1;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Arial,sans-serif;background:radial-gradient(1200px 800px at 80% 0%,#1b2436 0%,#0b0f14 45%,#0b0f14 100%);color:var(--ink)}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+    .card{width:min(900px,95vw);background:linear-gradient(180deg,rgba(167,139,250,.12),transparent 30%),var(--card);border:1px solid rgba(255,255,255,.08);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden}
+    header{padding:22px 24px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;gap:14px;align-items:center;justify-content:space-between}
+    h1{font-size:22px;margin:0;letter-spacing:.4px}
+    .tag{font-size:12px;color:var(--ink2)}
+    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;padding:22px}
+    .panel{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:18px}
+    .seq{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .chip{padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-weight:600;display:flex;gap:8px;align-items:center}
+    .chip .k{opacity:.8;font-weight:700}
+    .big{font-size:28px}
+    .next{outline:2px solid var(--accent);box-shadow:0 0 0 6px rgba(167,139,250,.14)}
+    .status{display:flex;gap:14px;align-items:center;margin-top:10px;color:var(--ink2)}
+    .status b{color:var(--ink)}
+    .pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:10px}
+    button{appearance:none;border:0;border-radius:14px;padding:16px 14px;font-size:18px;color:#0b0f14;background:#e5e7eb;cursor:pointer;transition:transform .06s ease, filter .2s}
+    button:active{transform:translateY(1px)}
+    button[data-k="O"]{background:#f1f5f9}
+    button[data-k="T"]{background:#fde68a}
+    button[data-k="X"]{background:#fecaca}
+    button[data-k="ArrowRight"],button[data-k="ArrowDown"]{background:#d1fae5}
+    .log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.5;max-height:180px;overflow:auto;white-space:pre-wrap;color:var(--ink2)}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:12px}
+    .footer{padding:16px 22px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;color:var(--ink2)}
+    .ok{color:var(--ok)} .bad{color:var(--bad)}
+    .title-hero{font-size:18px;margin:0 0 8px 0}
+    .hero{font-size:14px;color:var(--ink2);margin:0}
+    .center{display:grid;place-items:center}
+    .cta{padding:12px 16px;background:var(--accent);color:white;border-radius:12px;border:0;font-weight:700}
+    .hidden{display:none}
+
+    /* Modal */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:grid;place-items:center;z-index:50}
+    .modal-box{background:var(--card);padding:24px;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.6);width:300px;text-align:center}
+    .modal h2{margin:0 0 12px;font-size:18px}
+    .modal input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--ink);margin-bottom:12px;text-align:center}
+
+    /* Tetris-like canvas */
+    #tetrisContainer{display:flex;justify-content:center;padding:8px;background:linear-gradient(180deg, rgba(255,255,255,.01), transparent);border-radius:12px;margin-bottom:10px}
+    #tetrisCanvas{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));border-radius:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+    .tetris-info{font-size:12px;color:var(--ink2);margin-top:6px;text-align:center}
+
+    /* Large Heart effect (covers ~half screen) */
+    .big-heart {
+      position:fixed;
+      pointer-events:none;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%) scale(0.1);
+      font-size:45vh;               /* roughly half the viewport height */
+      line-height:0.95;
+      opacity:0;
+      color: #ff6b9a;
+      text-shadow: 0 30px 80px rgba(0,0,0,0.6);
+      z-index:9999;
+      will-change: transform, opacity;
+      animation: big-heart-anim 1200ms cubic-bezier(.2,.8,.2,1) forwards;
+    }
+    @keyframes big-heart-anim {
+      0%   { opacity:0; transform:translate(-50%,-50%) scale(0.08) rotate(-10deg); }
+      20%  { opacity:1; transform:translate(-50%,-50%) scale(0.9) rotate(-6deg); }
+      60%  { opacity:0.95; transform:translate(-50%,-50%) scale(1.02) rotate(4deg); }
+      100% { opacity:0; transform:translate(-50%,-50%) scale(1.15) rotate(12deg); }
+    }
+
+    /* Optional smaller hearts (kept for variety) */
+    .heart {
+      position:fixed;
+      pointer-events:none;
+      transform:translate(-50%, -50%) scale(1);
+      font-size:24px;
+      will-change: transform, opacity;
+      animation: heart-rise 1000ms cubic-bezier(.2,.8,.2,1) forwards;
+      z-index:9999;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.45);
+    }
+    @keyframes heart-rise {
+      0% { opacity:1; transform: translate(-50%, -50%) translateY(0) scale(1); }
+      50% { transform: translate(-50%, -50%) translateY(-40px) scale(1.18) rotate(-5deg); }
+      100% { opacity:0; transform: translate(-50%, -50%) translateY(-120px) scale(.9) rotate(8deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="modal" id="modalName">
+    <div class="modal-box">
+      <h2>Introduce tu nombre</h2>
+      <input type="text" id="playerName" value="Jorge" readonly />
+      <button class="cta" id="btnName">Aceptar</button>
+    </div>
+  </div>
+
+  <div class="wrap hidden" id="gameWrap">
+    <div class="card" role="application" aria-label="Mini‑Juego QTE Yhomira Night">
+      <header>
+        <div>
+          <h1 id="titleName">Tu nombre: Jorge, para Yhomira</h1>
+          <div class="tag">Secuencia: 🔵 🔵 🔺 ❌ → ↓ ○ &nbsp;·&nbsp; Teclado: O, O, T, X, →, ↓, O</div>
+        </div>
+        <button class="cta" id="btnReset" aria-label="Reiniciar">Reiniciar</button>
+      </header>
+
+      <div class="grid">
+        <section class="panel">
+          <h2 class="title-hero">ATENCIÓN</h2>
+          <p class="hero">Hey <b>Yhomira</b> — hoy jugamos en modo p2p. Sigue la secuencia correcta y desbloquea el final romántico. Si te equivocas… se acaba la magia.</p>
+
+          <div class="status">
+            <span class="pill">Progreso: <b id="progress">0 / 7</b></span>
+            <span class="pill">Intentos: <b id="tries">0</b></span>
+            <span class="pill">Mejor tiempo: <b id="best">—</b></span>
+          </div>
+
+          <div style="margin-top:14px">
+            <div class="seq" id="seq"></div>
+          </div>
+
+          <div class="pad" aria-label="Botonera">
+            <button data-k="O" aria-label="Círculo (O)">🔵&nbsp;<span class="k">O</span></button>
+            <button data-k="T" aria-label="Triángulo (T)">🔺&nbsp;<span class="k">T</span></button>
+            <button data-k="X" aria-label="Equis (X)">❌&nbsp;<span class="k">X</span></button>
+            <button data-k="ArrowRight" aria-label="Flecha derecha (→)">➡️&nbsp;<span class="k">→</span></button>
+            <button data-k="ArrowDown" aria-label="Flecha abajo (↓)">⬇️&nbsp;<span class="k">↓</span></button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="title-hero">Mensajes</h2>
+
+          <!-- Tetris-like letters area -->
+          <div id="tetrisContainer">
+            <canvas id="tetrisCanvas" width="196" height="336" aria-label="Tetris de letras"></canvas>
+          </div>
+          <div class="tetris-info" id="tetrisInfo">Pulsa <b>O</b> para empezar y ver caer las letras hasta formar <b>YHOMIRA</b>.</div>
+
+          <div id="msg" class="hero" style="margin:10px 0 8px 0">Pulsa <b>O</b> para empezar. También puedes usar los botones de la pantalla.</div>
+          <div class="log" id="log" aria-live="polite" style="height:120px;overflow:auto;"></div>
+
+          <div id="ending" class="center hidden" style="margin-top:14px">
+            <div>
+              <p style="margin:0 0 8px 0;font-weight:700">¡Final desbloqueado!</p>
+              <p style="margin:0">“Secuencia perfecta.” 💫</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="footer">
+        <div>Controles: <b>O, T, X, →, ↓</b> · Click/tap también funciona · Sonidos opcionales (vibración si tu dispositivo lo permite)</div>
+        <div class="pill">Hecho para <b>Yhomira</b> con ♥</div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="sOK">
+    <source src="data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAAACAAACc2FtcGxlAAAA" type="audio/wav">
+  </audio>
+  <audio id="sERR">
+    <source src="data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAAACAAACc2FtcGxlAAAA" type="audio/wav">
+  </audio>
+
+  <script>
+    const modal=document.getElementById('modalName');
+    const btnName=document.getElementById('btnName');
+    const playerName=document.getElementById('playerName');
+    const wrap=document.getElementById('gameWrap');
+    const titleName=document.getElementById('titleName');
+
+    btnName.addEventListener('click',()=>{
+      modal.style.display = 'none';
+      wrap.classList.remove('hidden');
+      titleName.textContent = `Tu nombre: ${playerName.value}, para Yhomira`;
+    });
+
+    // --- Configuración del juego ---
+    const sequence = [
+      {k:'O', label:'Círculo', icon:'🔵'},
+      {k:'O', label:'Círculo', icon:'🔵'},
+      {k:'T', label:'Triángulo', icon:'🔺'},
+      {k:'X', label:'Equis', icon:'❌'},
+      {k:'ArrowRight', label:'Derecha', icon:'➡️'},
+      {k:'ArrowDown', label:'Abajo', icon:'⬇️'},
+      {k:'O', label:'Círculo', icon:'🔵'},
+    ];
+
+    let idx=0, tries=0, startTime=null, bestTime=null;
+    const $seq=document.getElementById('seq');
+    const $msg=document.getElementById('msg');
+    const $log=document.getElementById('log');
+    const $progress=document.getElementById('progress');
+    const $tries=document.getElementById('tries');
+    const $best=document.getElementById('best');
+    const $ending=document.getElementById('ending');
+    const sOK=document.getElementById('sOK');
+    const sERR=document.getElementById('sERR');
+
+    function renderSeq(){
+      $seq.innerHTML='';
+      sequence.forEach((step,i)=>{
+        const el=document.createElement('div');
+        el.className='chip big'+(i===idx?' next':'');
+        el.innerHTML=`<span class="i">${step.icon}</span> <span class="k">${step.k.replace('Arrow','')}</span>`;
+        $seq.appendChild(el);
+      });
+      $progress.textContent = `${idx} / ${sequence.length}`;
+    }
+
+    function vibrate(ms){ if (navigator.vibrate) try{navigator.vibrate(ms)}catch(e){} }
+    function ok(){ try{sOK.currentTime=0; sOK.play().catch(()=>{})}catch(e){} vibrate(20);} 
+    function err(){ try{sERR.currentTime=0; sERR.play().catch(()=>{})}catch(e){} vibrate([30,30,30]); }
+    function setMsg(t){ $msg.innerHTML = t; }
+
+    function reset(all=false){
+      idx=0; startTime=null; $ending.classList.add('hidden');
+      if(all){ tries=0; bestTime=null; $best.textContent='—'; }
+      $tries.textContent=tries;
+      renderSeq();
+      setMsg('Pulsa <b>O</b> para empezar. También puedes usar los botones de la pantalla.');
+      if(window.TETRIS) window.TETRIS.reset();
+    }
+
+    function win(){
+      const ms = Date.now()-startTime;
+      if(bestTime==null || ms<bestTime) bestTime=ms;
+      $best.textContent=(bestTime/1000).toFixed(2)+'s';
+      setMsg(`<span class="ok"><b>¡Secuencia completa!</b></span> Tiempo: <b>${(ms/1000).toFixed(2)}s</b>.`);
+      $ending.classList.remove('hidden');
+      $progress.textContent=`${sequence.length} / ${sequence.length}`;
+      log(`✔️ Completado en ${(ms/1000).toFixed(2)}s — Yhomira aprueba esto.`);
+      // signal the tetris module to start the final blink/pulse
+      if(window.TETRIS && typeof window.TETRIS.startWinBlink === 'function') window.TETRIS.startWinBlink();
+    }
+
+    function fail(reason='Entrada incorrecta'){
+      tries++; $tries.textContent=tries; err();
+      setMsg(`<span class="bad"><b>Oops:</b></span> ${reason}. Reinicia la secuencia.`);
+      log(`❌ Fallo en el paso ${idx+1}. Se reinicia.`);
+      idx=0; startTime=null; renderSeq();
+      // stop any win blink if it was running
+      if(window.TETRIS && typeof window.TETRIS.stopWinBlink === 'function') window.TETRIS.stopWinBlink();
+    }
+
+    function handleInput(k){
+      // spawn big heart effect for this press (centered, large)
+      spawnLargeHeart();
+
+      if(idx===0 && k==='O') {
+        startTime = Date.now();
+        if(window.TETRIS) window.TETRIS.start();
+      }
+      const expect = sequence[idx].k;
+      if(k===expect){
+        if(window.TETRIS) {
+          window.TETRIS.spawnLetterForStep(idx);
+        }
+        ok(); idx++; renderSeq();
+        if(idx>=sequence.length){ win(); }
+        else setMsg(`Bien. Sigue con <b>${sequence[idx].k.replace('Arrow','')}</b> (${sequence[idx].label}).`);
+      }else{
+        fail(`Se esperaba <b>${expect.replace('Arrow','')}</b>`);
+      }
+    }
+
+    window.addEventListener('keydown',(e)=>{
+      const k = (e.key.toUpperCase()==='O')?'O':(e.key.toUpperCase()==='T')?'T':(e.key.toUpperCase()==='X')?'X':(e.key==='ArrowRight')?'ArrowRight':(e.key==='ArrowDown')?'ArrowDown':null;
+      if(!k) return; e.preventDefault(); handleInput(k);
+    });
+
+    document.querySelectorAll('button[data-k]').forEach(btn=>{
+      btn.addEventListener('click',(ev)=>{
+        handleInput(btn.dataset.k);
+        // spawn large centered heart regardless of click position to cover half screen
+        spawnLargeHeart();
+      });
+    });
+
+    document.getElementById('btnReset').addEventListener('click',()=> reset());
+
+    function log(t){
+      const time = new Date().toLocaleTimeString();
+      $log.textContent = `[${time}] ${t}\n` + $log.textContent;
+    }
+
+    renderSeq();
+
+
+    /**************************************************************************
+     * Tetris-like falling letters that form "YHOMIRA"
+     *
+     * Added: when the word is formed we animate the bottom-row letters with a
+     * glowing + blinking/pulsing effect inside the canvas drawing loop.
+     **************************************************************************/
+
+    (function initTetris(){
+      const canvas = document.getElementById('tetrisCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const TARGET = 'YHOMIRA';
+      const COLORS = {
+        Y: '#F8E71C', // amarillo
+        H: '#34D399', // verde
+        O: '#EF4444', // rojo
+        M: '#FB923C', // naranja
+        I: '#60A5FA', // azul claro
+        R: '#A78BFA', // morado
+        A: '#F472B6'  // rosa
+      };
+
+      const COLS = TARGET.length;
+      const ROWS = 12;
+      const CELL = 28;
+      const SPEED = 160;
+      canvas.width = COLS * CELL;
+      canvas.height = ROWS * CELL;
+
+      let board = [];
+      let animId = null;
+      let lastTime = 0;
+      let running = false;
+      let piece = null;
+      let lockEffects = [];
+      // NEW: win blink state
+      let winBlink = false;
+      let winBlinkStart = 0;
+
+      function resetBoard(){
+        board = [];
+        for(let r=0;r<ROWS;r++){
+          board.push(new Array(COLS).fill(''));
+        }
+        piece = null;
+        running = false;
+        lastTime = 0;
+        lockEffects = [];
+        winBlink = false;
+        winBlinkStart = 0;
+        cancelAnim();
+        draw();
+        document.getElementById('tetrisInfo').textContent = 'Pulsa O para empezar el QTE y ver caer las letras hasta formar YHOMIRA.';
+      }
+
+      function cancelAnim(){
+        if(animId) { cancelAnimationFrame(animId); animId = null; }
+      }
+
+      function draw(){
+        const now = performance.now();
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        for(let c=0;c<=COLS;c++){
+          ctx.beginPath();
+          ctx.moveTo(c*CELL,0);
+          ctx.lineTo(c*CELL,ROWS*CELL);
+          ctx.stroke();
+        }
+        for(let r=0;r<=ROWS;r++){
+          ctx.beginPath();
+          ctx.moveTo(0,r*CELL);
+          ctx.lineTo(COLS*CELL,r*CELL);
+          ctx.stroke();
+        }
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `${CELL*0.6}px ui-monospace, monospace`;
+
+        // locked letters with colored boxes and optional glow/pulse
+        for(let r=0;r<ROWS;r++){
+          for(let c=0;c<COLS;c++){
+            const L = board[r][c];
+            if(L){
+              const x = c*CELL + CELL/2;
+              const y = r*CELL + CELL/2;
+
+              // find if this tile has a recent lock effect
+              const eff = lockEffects.find(le => le.r === r && le.c === c);
+              let glowAlpha = 0;
+              if(eff){
+                const elapsed = now - eff.t;
+                const D = 600; // glow duration ms
+                if(elapsed < D){
+                  glowAlpha = 1 - (elapsed / D);
+                }
+              }
+
+              // If we're in winBlink mode and this is the bottom row, compute blink multiplier
+              let blinkMul = 1;
+              if(winBlink && r === ROWS - 1){
+                // pulsate between 0.5 and 1.4 using sine
+                blinkMul = 0.9 + 0.5 * Math.sin((now - winBlinkStart) / 180);
+                // clamp
+                if(blinkMul < 0.5) blinkMul = 0.5;
+                if(blinkMul > 1.6) blinkMul = 1.6;
+              }
+
+              // background tinted by color (alpha scaled by blinkMul for the bottom row)
+              ctx.save();
+              const baseColor = COLORS[L] || '#ffffff';
+              ctx.shadowBlur = (glowAlpha > 0 ? 12 * glowAlpha : 0) + (r === ROWS - 1 && winBlink ? 14 * (blinkMul - 0.9) : 0);
+              ctx.shadowColor = baseColor;
+              ctx.fillStyle = hexToRgba(baseColor, 0.18 * blinkMul);
+              roundRect(ctx, c*CELL+2, r*CELL+2, CELL-4, CELL-4, 6, true, false);
+
+              // inner gradient rectangle for nicer look
+              const grad = ctx.createLinearGradient(0, r*CELL, 0, r*CELL + CELL);
+              grad.addColorStop(0, hexToRgba(baseColor, 0.26 * blinkMul));
+              grad.addColorStop(1, hexToRgba('#ffffff', 0.03 * blinkMul));
+              ctx.fillStyle = grad;
+              roundRect(ctx, c*CELL+2, r*CELL+2, CELL-4, CELL-4, 6, true, false);
+
+              // letter (invert color slightly when blinking to make it pop)
+              if(r === ROWS - 1 && winBlink){
+                // bright letter when blinked
+                ctx.fillStyle = hexToRgba('#ffffff', 1);
+                ctx.font = `${CELL*0.72 * Math.min(1.15, blinkMul)}px ui-monospace, monospace`;
+              } else {
+                ctx.fillStyle = '#0b0f14';
+                ctx.font = `${CELL*0.6}px ui-monospace, monospace`;
+              }
+              ctx.fillText(L, x, y + 1);
+
+              // small outer glow ring if active
+              if(glowAlpha > 0){
+                ctx.globalAlpha = glowAlpha * 0.35 * blinkMul;
+                ctx.strokeStyle = baseColor;
+                ctx.lineWidth = 2 + 6 * glowAlpha;
+                roundRect(ctx, c*CELL+1, r*CELL+1, CELL-2, CELL-2, 8, false, true);
+                ctx.globalAlpha = 1;
+              }
+
+              ctx.restore();
+            }
+          }
+        }
+
+        // falling piece: draw with full color and a soft shadow
+        if(piece){
+          ctx.save();
+          const px = piece.col*CELL;
+          const py = piece.y;
+          const color = COLORS[piece.letter] || '#ffffff';
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 18;
+          ctx.fillStyle = hexToRgba(color, 0.22);
+          roundRect(ctx, px+2, py+2, CELL-4, CELL-4, 6, true, false);
+          ctx.fillStyle = '#fff';
+          ctx.font = `${CELL*0.6}px ui-monospace, monospace`;
+          ctx.fillText(piece.letter, px + CELL/2, py + CELL/2 + 1);
+          ctx.restore();
+        }
+      }
+
+      // helper to draw rounded rect (also used for stroke)
+      function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+        if (typeof r === 'undefined') r = 5;
+        const min = Math.min(w, h);
+        if(r > min / 2) r = min / 2;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        if (fill) ctx.fill();
+        if (stroke) {
+          ctx.strokeStyle = ctx.strokeStyle || 'rgba(255,255,255,0.04)';
+          ctx.stroke();
+        }
+      }
+
+      // small util to convert hex to rgba string
+      function hexToRgba(hex, alpha){
+        if(!hex) hex = '#ffffff';
+        const c = hex.replace('#','');
+        const normalized = c.length === 3 ? c.split('').map(ch=>ch+ch).join('') : c;
+        const bigint = parseInt(normalized, 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `rgba(${r},${g},${b},${alpha})`;
+      }
+
+      function lockPieceToBoard(){
+        const col = piece.col;
+        let targetRow = ROWS - 1;
+        while(targetRow >= 0 && board[targetRow][col] !== '') targetRow--;
+        const placeRow = targetRow < 0 ? 0 : targetRow;
+        board[placeRow][col] = piece.letter;
+        // register lock effect
+        lockEffects.push({ r: placeRow, c: col, t: performance.now() });
+        // clean old effects
+        lockEffects = lockEffects.filter(e => performance.now() - e.t < 1200);
+        log(`⬇️ Letra '${piece.letter}' bloqueada en columna ${col+1}, fila ${placeRow+1}`);
+        piece = null;
+        checkWinCondition();
+      }
+
+      function checkWinCondition(){
+        let str = '';
+        for(let c=0;c<COLS;c++){
+          str += board[ROWS - 1][c] || ' ';
+        }
+        if(str === TARGET){
+          document.getElementById('tetrisInfo').textContent = `¡Palabra formada: ${TARGET}!`;
+          log(`🏁 Las letras han formado "${TARGET}".`);
+          $ending.classList.remove('hidden');
+          // start the blinking/glow effect for the bottom-row letters
+          winBlink = true;
+          winBlinkStart = performance.now();
+        }
+      }
+
+      function step(ts){
+        if(!lastTime) lastTime = ts;
+        const dt = (ts - lastTime) / 1000;
+        lastTime = ts;
+
+        if(running){
+          if(piece){
+            piece.y += SPEED * dt;
+            if((piece.y + CELL) >= ROWS * CELL){
+              piece.y = (ROWS - 1) * CELL;
+              lockPieceToBoard();
+            } else {
+              const col = piece.col;
+              const centerRow = Math.floor((piece.y + CELL/2) / CELL);
+              const belowRow = centerRow + 1;
+              if(belowRow >= 0 && belowRow < ROWS && board[belowRow][col] !== ''){
+                piece.y = Math.max(0, belowRow - 1) * CELL;
+                lockPieceToBoard();
+              }
+            }
+          }
+        }
+
+        draw();
+        animId = requestAnimationFrame(step);
+      }
+
+      // API pública
+      window.TETRIS = {
+        start(){
+          resetBoard();
+          running = true;
+          lastTime = 0;
+          if(!animId) animId = requestAnimationFrame(step);
+          log('▶️ Mini‑Tetris listo — Las letras caerán cada vez que aciertes la secuencia.');
+        },
+        reset(){ resetBoard(); },
+        spawnLetterForStep(stepIndex){
+          if(stepIndex < 0 || stepIndex >= TARGET.length){
+            log(`⚠️ Intento de spawn fuera de rango: ${stepIndex}`);
+            return;
+          }
+          const letter = TARGET[stepIndex];
+          const col = stepIndex;
+          const colFull = board.every(r => r[col] !== '');
+          if(colFull){
+            log(`⚠️ Columna ${col+1} ya llena, no se puede spawnear '${letter}'.`);
+            return;
+          }
+          if(piece){
+            log(`ℹ️ Esperando que la pieza actual termine antes de spawnear '${letter}'.`);
+            const watcher = setInterval(()=>{
+              if(!piece){
+                clearInterval(watcher);
+                piece = { letter, col, y: -CELL };
+                log(`⬇️ Spawn diferido: '${letter}' en columna ${col+1}`);
+              }
+            }, 100);
+            return;
+          }
+          piece = { letter, col, y: -CELL };
+          document.getElementById('tetrisInfo').textContent = `Cayendo: ${letter}`;
+          log(`⬇️ Spawn: '${letter}' en columna ${col+1}`);
+        },
+        spawnManual(letter, col){
+          if(col<0||col>=COLS) return;
+          piece = { letter, col, y: -CELL };
+        },
+        // allow external control of the win blink
+        startWinBlink(){
+          winBlink = true;
+          winBlinkStart = performance.now();
+        },
+        stopWinBlink(){
+          winBlink = false;
+          winBlinkStart = 0;
+        }
+      };
+
+      resetBoard();
+    })();
+
+
+    /******************************
+     * Large heart spawn
+     ******************************/
+    function spawnLargeHeart(){
+      const big = document.createElement('div');
+      big.className = 'big-heart';
+      big.textContent = '❤';
+      const hue = 330 + Math.round((Math.random()-0.5)*60);
+      big.style.color = `hsl(${hue} 85% 65%)`;
+
+      document.body.appendChild(big);
+      big.addEventListener('animationend', () => {
+        try { big.remove(); } catch(e){}
+      });
+      setTimeout(()=> { try { big.remove(); } catch(e){} }, 1500);
+    }
+
+    // small hearts (kept but not used by default)
+    function spawnHeart(x, y){
+      const heart = document.createElement('div');
+      heart.className = 'heart';
+      heart.textContent = '❤';
+      const hue = 330 + Math.round((Math.random()-0.5)*60);
+      heart.style.color = `hsl(${hue} 85% 65%)`;
+      heart.style.left = `${x}px`;
+      heart.style.top = `${y}px`;
+      document.body.appendChild(heart);
+      setTimeout(()=> { try { heart.remove(); } catch(e){} }, 1100);
+    }
+
+    // keyboard presses show big heart now
+    function spawnHeartForKey(k){
+      spawnLargeHeart();
+    }
+  </script>
+</body>
+</html>
